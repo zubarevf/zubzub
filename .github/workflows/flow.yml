@@ -1,0 +1,50 @@
+name: Ripple Data Engine
+
+on:
+  schedule:
+    # Запуск о 35-й хвилині кожні 4 години (00:35, 04:35 і т.д.)
+    - cron: '52 */4 * * *'
+  workflow_dispatch:
+
+jobs:
+  make-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Fetch XRP Price
+        run: |
+          # 1. Рандомна затримка (до 15 хвилин)
+          sleep $((RANDOM % 900))
+          
+          TIMESTAMP=$(date "+%Y-%m-%d %H:%M")
+
+          # 2. Отримуємо ціну XRP (ідентифікатор: ripple)
+          RESPONSE=$(curl -s --max-time 15 "https://api.coingecko.com/api/v3/simple/price?ids=ripple&vs_currencies=usd")
+          XRP=$(echo $RESPONSE | jq -r '.ripple.usd // empty')
+
+          # 3. Назва файлу (змініть на одну з нових назв нижче)
+          FILE_NAME="ledger_flow.raw"
+
+          # 4. Логіка запису
+          if [ -z "$XRP" ] || [ "$XRP" == "null" ]; then
+            # План Б: системне повідомлення
+            LOG_ENTRY="[$TIMESTAMP] Signal: synchronization steady"
+            COMMIT_MSG="net: sync heartbeat $TIMESTAMP [skip ci]"
+          else
+            # План А: ціна монети
+            LOG_ENTRY="[$TIMESTAMP] XRP Ledger Price: \$$XRP USD"
+            COMMIT_MSG="xrp: ledger update $TIMESTAMP [skip ci]"
+          fi
+
+          # 5. Оновлення файлу та збереження історії (останні 35 рядків)
+          echo "$LOG_ENTRY" >> $FILE_NAME
+          echo "$(tail -n 52 $FILE_NAME)" > $FILE_NAME
+
+          # 6. Пуш
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action Bot"
+          git add $FILE_NAME
+          git commit -m "$COMMIT_MSG"
+          git push
