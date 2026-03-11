@@ -3,7 +3,7 @@ name: Ripple Data Engine
 on:
   schedule:
     # Запуск о 35-й хвилині кожні 4 години (00:35, 04:35 і т.д.)
-    - cron: '52 */4 * * *'
+    - cron: '52 */7 * * *'
   workflow_dispatch:
 
 jobs:
